@@ -1,0 +1,27 @@
+#!/bin/sh
+# This script will remove lvm2 snapshots of the os volumes.
+# Copyright 2013 by Reiner Rottmann (reiner@rottmann.it). Released under the BSD License.
+rootvol=`df -hP / |grep ^/ |cut -d ' ' -f1`
+rootvg=`basename $rootvol |cut -d '-' -f1`
+snappostfix=_snap  # postfix for the snapshot name
+
+# preflight checks
+if ! uname -r |grep -q el6; then
+   echo "ERROR: This script needs to be run on RHEL 6."
+   exit 1
+fi
+if [ -z "$rootvol" ]; then
+   echo "ERROR: Could not determine the root volume."
+   exit 1
+fi
+if [ -z "$rootvg" ]; then
+   echo "ERROR: Could not determine the lvm2 volume group of the root volume."
+   exit 1
+fi
+# remove snapshots of each lv on the vg with the root volume
+lvs $rootvg --noheadings | grep "$snappostfix" | while read snapshot foo
+do
+   cmd="lvremove --force $rootvg/$snapshot"
+   echo "# $cmd"
+   $cmd
+done
