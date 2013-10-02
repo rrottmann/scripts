@@ -1,0 +1,44 @@
+#!/bin/sh
+# This script creates a backup of the os volumes.
+# Copyright 2013 by Reiner Rottmann (reiner@rottmann.it). Released under the BSD License.
+rootvol=`df -hP / |grep ^/ |cut -d ' ' -f1`
+rootvg=`basename $rootvol |cut -d '-' -f1`
+rootvgfree=`vgs -o vg_free_count --noheadings $rootvg |tr -d ' '`
+rootvgminfree=800 # we need ca. 25GB free on the volume group
+snapsize=30       # size of the snapshot in percent of the origin volume.
+snappostfix=_snap  # postfix for the snapshot name
+
+function exit_error {
+   echo "ERROR: Command execution failed. Exiting."
+   exit 1
+}
+
+# preflight checks
+if ! uname -r |grep -q el6; then
+   echo "ERROR: This script needs to be run on RHEL 6."
+   exit 1
+fi
+if [ -z "$rootvol" ]; then
+   echo "ERROR: Could not determine the root volume."
+   exit 1
+fi
+if [ -z "$rootvg" ]; then
+   echo "ERROR: Could not determine the lvm2 volume group of the root volume."
+   exit 1
+fi
+if ! [ "$rootvgfree" -ge "$rootvgminfree" ]; then
+   echo "ERROR: Not enough free extends on $rootvg ($rootvgfree/800)."
+   exit 1
+fi
+# create snapshot of each lv on the vg with the root volume
+lvs $rootvg --noheadings | grep -v "$snappostfix" | while read lv foo
+do
+   if [ -e "/dev/mapper/$rootvg-$lv$snappostfix" ]; then
+      cmd="lvremove --force /dev/mapper/$rootvg-$lv$snappostfix"
+      echo "# $cmd"
+      $cmd || exit_error
+   fi
+   cmd="lvcreate --snapshot --extents $snapsize%ORIGIN --name $lv$snappostfix $rootvg/$lv"
+   echo "# $cmd"
+   $cmd || exit_error
+done
