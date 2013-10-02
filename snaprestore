@@ -1,0 +1,36 @@
+#!/bin/sh
+# This script restores snapshots of the os volumes.
+# Copyright 2013 by Reiner Rottmann (reiner@rottmann.it). Released under the BSD License.
+rootvol=`df -hP / |grep ^/ |cut -d ' ' -f1`
+rootvg=`basename $rootvol |cut -d '-' -f1`
+snappostfix=_snap  # postfix for the snapshot name
+
+# preflight checks
+if ! uname -r |grep -q el6; then
+   echo "ERROR: This script needs to be run on RHEL 6."
+   exit 1
+fi
+if ! dmsetup targets |grep -q snapshot-merge; then
+   echo "ERROR: This kernel does not support merging lvm2 snapshots. Exiting."
+   exit 1
+fi
+if [ -z "$rootvol" ]; then
+   echo "ERROR: Could not determine the root volume."
+   exit 1
+fi
+if [ -z "$rootvg" ]; then
+   echo "ERROR: Could not determine the lvm2 volume group of the root volume."
+   exit 1
+fi
+if lvs 2>/dev/null| awk '{print $3}' |grep -qP "\S{4}I\S{3}"; then
+    echo "ERROR: Invalid snapshots have been detected! Exiting."
+    exit 1
+fi
+# restore snapshots of each lv on the vg with the root volume
+lvs $rootvg --noheadings | grep "$snappostfix" | while read snapshot foo
+do
+   cmd="lvconvert --merge $rootvg/$snapshot"
+   echo "# $cmd"
+   $cmd
+done
+shutdown -r +15 "System needs reboot to revert to previous lvm2 snapshot state."
