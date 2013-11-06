@@ -1,17 +1,23 @@
 #!/bin/sh
-# This script creates bonding interfaces on RHEL 5.
+# This script creates bonding interfaces on RHEL 5 & 6.
 #
 # The first and second parameters are used to specify the enslaved interfaces.
 # The third parameter is used to describe the name of the bonding interface.
 # The network configuration is collected from the first device.
-# After running the script please verify the/etc/modprobe.conf file as well as
-# all/etc/sysconfig/network-scripts/ifcfg* files!
+#
+# After running the script please verify the following files:
+#    /etc/modprobe.conf                on RHEL5
+#    /etc/modprobe.d/bonding.conf      on RHEL6
+#    /etc/sysconfig/network-scripts/ifcfg*
 #
 # LICENSE INFORMATION
 #
 # This software is released under the BSD license:
 #
 # Copyright 2010 Reiner Rottmann reiner[at]rottmann.it. All Rights Reserved.
+#
+# Contributions:
+# Richard Mansfield: Modifications for RHEL6; adding of MTU
 #
 # Redistribution and use in source and binary forms, with or without modification,
 # are permitted provided that the following conditions are met:
@@ -100,21 +106,32 @@ fi
 }
 
 # The main function that creates the bonding devices.
-function rh5mkbond {
+function rhmkbond {
+
+# RHEL6 uses /etc/modprobe.d directory
+if [ -d /etc/modprobe.d ]; then
+        BONDCONFIG=/etc/modprobe.d/bonding.conf
+else # Assume RHEL5
+        BONDCONFIG=/etc/modprove.conf
+fi
 
 # Load the bonding kernel module with active-backup mode and set mii link monitoring to 100 ms.
 cp /etc/modprobe.conf /tmp/modprobe.conf.bonding
+test -f "{BONDCONFIG}" && cp "${BONDCONFIG}" /tmp/modprobe.conf.bonding
 cat >> /tmp/modprobe.conf.bonding <<EOF
 alias $3 bonding
 options $3 mode=1 miimon=100
 EOF
-cat /tmp/modprobe.conf.bonding|uniq > /etc/modprobe.conf
+
+cat /tmp/modprobe.conf.bonding|uniq > "${BONDCONFIG}"
 
 # Get interface details
 IP=$(/sbin/ifconfig $1|egrep -o "([0-9]{1,3}\.){3}[0-9]{1,3}"|sed -n "1p")
 NETMASK=$(/sbin/ifconfig $1|egrep -o "([0-9]{1,3}\.){3}[0-9]{1,3}"|sed -n "3p")
 MACIF1=$(/sbin/ifconfig $1|egrep -o "([[:xdigit:]]{2}[:]){5}[[:xdigit:]]{2}")
 MACIF2=$(/sbin/ifconfig $2|egrep -o "([[:xdigit:]]{2}[:]){5}[[:xdigit:]]{2}")
+MTU=$(/sbin/ifconfig $1 |egrep -o "MTU:([0-9]*)")
+MTU=${MTU#*:}
 
 # Create the bond0 device file.
 mv /etc/sysconfig/network-scripts/ifcfg-$3 /etc/sysconfig/network-scripts/ifcfg-$3.orig 2>/dev/null
@@ -126,12 +143,13 @@ $(/bin/ipcalc -n $IP $NETMASK)
 NETMASK=$NETMASK
 IPADDR=$IP
 USERCTL=no
+MTU=$MTU
 BOND
 
 # Create the slave device files.
 for i in $1 $2
 do
-mv /etc/sysconfig/network-scripts/ifcfg-$i /etc/sysconfig/network-scripts/ifcfg-$i.orig 2>/dev/null
+cp  /etc/sysconfig/network-scripts/ifcfg-$i  /etc/sysconfig/network-scripts/ifcfg-${i}X 2>/dev/null
 cat >> /etc/sysconfig/network-scripts/ifcfg-$i <<IFS
 DEVICE=$i
 BOOTPROTO=none
@@ -147,7 +165,7 @@ done
 
 # Call functions
 preflightcheck $1 $2 $3
-rh5mkbond $1 $2 $3
+rhmkbond $1 $2 $3
 
 # End script
 

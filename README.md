@@ -9,3 +9,4 @@ Collection of useful scripts.
 - snapremove: Removes a lvm snapshot backup of RHEL 6 os volumes.
 - snaprestore: Restores a previously taken lvm snapshot backup of RHEL 6 os volumes.
 - uips.py: Script checks ips whether they may be removed from DNS.
+- mkbond.sh: Script that creates bonded network interfaces on RHEL5/RHEL6
