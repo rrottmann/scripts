@@ -3,6 +3,7 @@ scripts
 
 Collection of useful scripts.
 
+- addtimestamp: Adds the file creation timestamp to a given file.
 - splitmirror: Creates a lvm splitmirror clone of RHEL 6 os volumes.
 - cloneremove : Removes a lvm splitmirror clone of RHEL 6 os volumes.
 - snapbackup: Creates a lvm snapshot backup of RHEL 6 os volumes.
