@@ -21,7 +21,6 @@ uname -s | grep -q Darwin
 if [ "$?" -eq 0 ]; then
     # running on Darwin
     ts=`stat -x -t"%y%m%d" "$1" | grep ^Change: | cut -d ':' -f2- | tr -d ' '`
-    echo "$1" "$dn/$ts-$fn" >> ~/foo.txt
     mv "$1" "$dn/$ts-$fn"
 else
     # not running on Darwin"
